@@ -58,8 +58,8 @@ export function DashboardPage() {
                 <Activity className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-foreground">Dashboard Executivo</h1>
-                <p className="text-xs text-muted-foreground">Valcann · Integração Jira Cloud</p>
+                <h1 className="text-lg font-bold text-foreground">Valcann Dash</h1>
+                <p className="text-xs text-muted-foreground">Integração Jira Cloud</p>
               </div>
             </div>
             <div className="flex items-center gap-2">

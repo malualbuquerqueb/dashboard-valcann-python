@@ -11,7 +11,7 @@ import {
 } from '../api/dashboard';
 import { DashboardFilters } from '../types';
 
-const REFETCH_INTERVAL = 30 * 1000; // 30 segundos
+const REFETCH_INTERVAL = 5 * 1000; // 5 segundos
 
 export function useDashboardStats(filters: DashboardFilters = {}) {
   return useQuery({

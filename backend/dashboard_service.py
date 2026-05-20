@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 from typing import Optional
 from jira_service import (
     get_projects,
@@ -75,16 +76,17 @@ async def get_dashboard_stats(filters: dict = {}) -> dict:
     if filters.get("projectKey"):
         projects = [p for p in projects if p["key"] == filters["projectKey"]]
 
-    all_issues: list[dict] = []
-    for project in projects:
-        issues = await get_issues_by_project(
-            project["key"],
+    results = await asyncio.gather(*[
+        get_issues_by_project(
+            p["key"],
             status=filters.get("status"),
             assignee_id=filters.get("assigneeId"),
             sprint_id=filters.get("sprintId"),
             epic_key=filters.get("epicKey"),
         )
-        all_issues.extend(issues)
+        for p in projects
+    ])
+    all_issues = [issue for issues in results for issue in issues]
 
     stats = _calculate_stats(all_issues)
     return {
@@ -100,56 +102,55 @@ async def get_dashboard_stats(filters: dict = {}) -> dict:
     }
 
 
+async def _summarize_project(project: dict, filters: dict) -> dict:
+    issues, epics = await asyncio.gather(
+        get_issues_by_project(
+            project["key"],
+            status=filters.get("status"),
+            assignee_id=filters.get("assigneeId"),
+            sprint_id=filters.get("sprintId"),
+        ),
+        get_epics_for_project(project["key"]),
+    )
+
+    stats = _calculate_stats(issues)
+    epic_summaries = []
+    for epic in epics:
+        epic_issues = [i for i in issues if get_epic_key(i) == epic["key"]]
+        es = _calculate_stats(epic_issues)
+        epic_summaries.append({
+            "id": epic["id"],
+            "key": epic["key"],
+            "name": epic.get("fields", {}).get("summary"),
+            "totalTasks": es["total"],
+            "completedTasks": es["completed"],
+            "inProgressTasks": es["inProgress"],
+            "openTasks": es["open"],
+            "blockedTasks": es["blocked"],
+            "progressPercentage": es["progress"],
+        })
+
+    return {
+        "id": project["id"],
+        "key": project["key"],
+        "name": project["name"],
+        "clientName": project["name"],
+        "totalTasks": stats["total"],
+        "completedTasks": stats["completed"],
+        "inProgressTasks": stats["inProgress"],
+        "openTasks": stats["open"],
+        "blockedTasks": stats["blocked"],
+        "progressPercentage": stats["progress"],
+        "epics": epic_summaries,
+    }
+
+
 async def get_projects_summary(filters: dict = {}) -> list[dict]:
     projects = await get_projects()
     if filters.get("projectKey"):
         projects = [p for p in projects if p["key"] == filters["projectKey"]]
 
-    summaries = []
-    for project in projects:
-        import asyncio
-        issues, epics = await asyncio.gather(
-            get_issues_by_project(
-                project["key"],
-                status=filters.get("status"),
-                assignee_id=filters.get("assigneeId"),
-                sprint_id=filters.get("sprintId"),
-            ),
-            get_epics_for_project(project["key"]),
-        )
-
-        stats = _calculate_stats(issues)
-        epic_summaries = []
-        for epic in epics:
-            epic_issues = [i for i in issues if get_epic_key(i) == epic["key"]]
-            es = _calculate_stats(epic_issues)
-            epic_summaries.append({
-                "id": epic["id"],
-                "key": epic["key"],
-                "name": epic.get("fields", {}).get("summary"),
-                "totalTasks": es["total"],
-                "completedTasks": es["completed"],
-                "inProgressTasks": es["inProgress"],
-                "openTasks": es["open"],
-                "blockedTasks": es["blocked"],
-                "progressPercentage": es["progress"],
-            })
-
-        summaries.append({
-            "id": project["id"],
-            "key": project["key"],
-            "name": project["name"],
-            "clientName": project["name"],
-            "totalTasks": stats["total"],
-            "completedTasks": stats["completed"],
-            "inProgressTasks": stats["inProgress"],
-            "openTasks": stats["open"],
-            "blockedTasks": stats["blocked"],
-            "progressPercentage": stats["progress"],
-            "epics": epic_summaries,
-        })
-
-    return summaries
+    return list(await asyncio.gather(*[_summarize_project(p, filters) for p in projects]))
 
 
 async def get_blocked_tasks_list(project_key: Optional[str] = None) -> list[dict]:
@@ -182,17 +183,17 @@ async def get_tasks_list(filters: dict = {}) -> list[dict]:
     if filters.get("projectKey"):
         projects = [p for p in projects if p["key"] == filters["projectKey"]]
 
-    all_issues: list[dict] = []
-    for project in projects:
-        issues = await get_issues_by_project(
-            project["key"],
+    results = await asyncio.gather(*[
+        get_issues_by_project(
+            p["key"],
             status=filters.get("status"),
             assignee_id=filters.get("assigneeId"),
             sprint_id=filters.get("sprintId"),
             epic_key=filters.get("epicKey"),
         )
-        all_issues.extend(issues)
-
+        for p in projects
+    ])
+    all_issues = [issue for issues in results for issue in issues]
     return [_map_issue_to_task(i) for i in all_issues]
 
 
@@ -215,9 +216,11 @@ async def get_status_distribution(project_key: Optional[str] = None) -> list[dic
 
 async def get_projects_progress() -> list[dict]:
     projects = await get_projects()
+
+    results = await asyncio.gather(*[get_issues_by_project(p["key"]) for p in projects])
+
     progress_list = []
-    for project in projects:
-        issues = await get_issues_by_project(project["key"])
+    for project, issues in zip(projects, results):
         stats = _calculate_stats(issues)
         name = project["name"]
         if len(name) > 20:
@@ -237,18 +240,23 @@ async def get_projects_progress() -> list[dict]:
 
 async def get_filter_options() -> dict:
     projects = await get_projects()
+
+    results = await asyncio.gather(*[
+        asyncio.gather(
+            get_sprints_for_project(p["key"]),
+            get_issues_by_project(p["key"]),
+        )
+        for p in projects
+    ])
+
     all_sprints: list[dict] = []
     all_assignees: dict[str, dict] = {}
+    sprint_ids: set[int] = set()
 
-    import asyncio
-    for project in projects:
-        sprints, issues = await asyncio.gather(
-            get_sprints_for_project(project["key"]),
-            get_issues_by_project(project["key"]),
-        )
-
+    for project, (sprints, issues) in zip(projects, results):
         for sprint in sprints:
-            if not any(s["id"] == sprint["id"] for s in all_sprints):
+            if sprint["id"] not in sprint_ids:
+                sprint_ids.add(sprint["id"])
                 all_sprints.append({"id": sprint["id"], "name": sprint["name"], "state": sprint["state"], "projectKey": project["key"]})
 
         for issue in issues:
@@ -270,10 +278,11 @@ async def get_filter_options() -> dict:
 
 async def get_clients_summary() -> list[dict]:
     projects = await get_projects()
-    client_map: dict[str, dict] = {}
 
-    for project in projects:
-        issues = await get_issues_by_project(project["key"])
+    results = await asyncio.gather(*[get_issues_by_project(p["key"]) for p in projects])
+
+    client_map: dict[str, dict] = {}
+    for project, issues in zip(projects, results):
         stats = _calculate_stats(issues)
         client_id = project["id"]
 

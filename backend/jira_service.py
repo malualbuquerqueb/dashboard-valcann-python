@@ -19,12 +19,10 @@ async def search_issues(jql: str, next_page_token: Optional[str] = None, max_res
     if next_page_token:
         params["nextPageToken"] = next_page_token
 
-    async with get_client() as client:
-        print(f"[Jira API] GET /search/jql jql={jql[:80]}")
-        response = client.get("/search/jql", params=params)
-        r = await response
-        r.raise_for_status()
-        return r.json()
+    print(f"[Jira API] GET /search/jql jql={jql[:80]}")
+    r = await get_client().get("/search/jql", params=params)
+    r.raise_for_status()
+    return r.json()
 
 
 async def search_all_issues(jql: str) -> list[dict]:
@@ -47,18 +45,18 @@ async def get_projects() -> list[dict]:
     all_projects: list[dict] = []
     start_at = 0
     max_results = 50
+    client = get_client()
 
-    async with get_client() as client:
-        while True:
-            print(f"[Jira API] GET /project/search startAt={start_at}")
-            r = await client.get("/project/search", params={"startAt": start_at, "maxResults": max_results, "orderBy": "name"})
-            r.raise_for_status()
-            data = r.json()
-            all_projects.extend(data.get("values", []))
+    while True:
+        print(f"[Jira API] GET /project/search startAt={start_at}")
+        r = await client.get("/project/search", params={"startAt": start_at, "maxResults": max_results, "orderBy": "name"})
+        r.raise_for_status()
+        data = r.json()
+        all_projects.extend(data.get("values", []))
 
-            if data.get("isLast") or len(data.get("values", [])) == 0:
-                break
-            start_at += max_results
+        if data.get("isLast") or len(data.get("values", [])) == 0:
+            break
+        start_at += max_results
 
     return all_projects
 

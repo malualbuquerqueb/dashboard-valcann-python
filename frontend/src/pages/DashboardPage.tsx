@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatsCards } from '@/components/dashboard/StatsCards';
+import { QuickNavBar } from '@/components/dashboard/QuickNavBar';
 import { BlockedTasksTable } from '@/components/dashboard/BlockedTasksTable';
 import { ProjectsTable } from '@/components/dashboard/ProjectsTable';
 import { TasksModal, CardType } from '@/components/dashboard/TasksModal';
@@ -12,6 +13,8 @@ import {
   useProjects,
   useClients,
   useBlockedTasks,
+  useOverdueTasks,
+  useEpics,
   useStatusDistribution,
   useProjectsProgress,
   useFilterOptions,
@@ -24,15 +27,18 @@ export function DashboardPage() {
   const [filters, setFilters] = useState<DashboardFilters>({});
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const statsQuery = useDashboardStats(filters);
   const projectsQuery = useProjects(filters);
   const clientsQuery = useClients();
-  const blockedQuery = useBlockedTasks(filters.projectKey);
-  const statusDistQuery = useStatusDistribution(filters.projectKey);
-  const progressQuery = useProjectsProgress();
+  const blockedQuery = useBlockedTasks(filters.projectKey, filters.epicKey);
+  const epicsQuery = useEpics(filters.projectKey);
+  const statusDistQuery = useStatusDistribution(filters.projectKey, filters.epicKey);
+  const progressQuery = useProjectsProgress(filters);
   const filterOptionsQuery = useFilterOptions();
-  const tasksQuery = useTasks(filters, activeCard !== null && activeCard !== 'projects' && activeCard !== 'clients');
+  const tasksQuery = useTasks(filters, activeCard !== null && activeCard !== 'projects' && activeCard !== 'clients' && activeCard !== 'overdue');
+  const overdueQuery = useOverdueTasks(filters, true);
 
   const isAnyLoading =
     statsQuery.isLoading ||
@@ -51,36 +57,20 @@ export function DashboardPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Activity className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-foreground">Valcann Dash</h1>
-                <p className="text-xs text-muted-foreground">Integração Jira Cloud</p>
-              </div>
+        <div className="max-w-[1800px] mx-auto px-3 sm:px-4 lg:px-6 py-3">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
+              <Activity className="h-4 w-4 text-primary" />
             </div>
-            <div className="flex items-center gap-2">
-              {isAnyLoading && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                  Atualizando...
-                </div>
-              )}
-              {!isAnyLoading && (
-                <div className="flex items-center gap-1.5 text-xs text-green-400">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                  Ao vivo
-                </div>
-              )}
+            <div>
+              <h1 className="text-lg font-bold text-foreground">Valcann Dash</h1>
+              <p className="text-xs text-muted-foreground">Integração Jira Cloud</p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <main className="max-w-[1800px] mx-auto px-3 sm:px-4 lg:px-6 py-4 space-y-4">
         {/* Erro de conexão */}
         {hasError && (
           <div className="flex items-center gap-3 p-4 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400">
@@ -94,11 +84,25 @@ export function DashboardPage() {
           </div>
         )}
 
+        {/* Barra de navegação rápida */}
+        <div className="bg-card/50 rounded-xl border border-border/50 px-3 py-2.5">
+          <QuickNavBar
+            totalClients={statsQuery.data?.totalClients}
+            totalProjects={statsQuery.data?.totalProjects}
+            lastUpdated={lastUpdated}
+            isLoading={isAnyLoading}
+            onClientsClick={() => setActiveTab('clientes')}
+            onProjectsClick={() => setActiveTab('clientes')}
+          />
+        </div>
+
         {/* Filtros */}
-        <div className="bg-card/50 rounded-xl border border-border/50 p-4">
+        <div className="bg-card/50 rounded-xl border border-border/50 p-3">
           <DashboardFiltersBar
             filters={filters}
             options={filterOptionsQuery.data}
+            epics={epicsQuery.data}
+            epicsLoading={epicsQuery.isLoading}
             isLoading={isAnyLoading}
             onChange={setFilters}
             lastUpdated={lastUpdated}
@@ -108,15 +112,16 @@ export function DashboardPage() {
         {/* Stats Cards */}
         <StatsCards
           stats={statsQuery.data}
+          overdueCount={overdueQuery.data?.length ?? 0}
           isLoading={statsQuery.isLoading}
           onCardClick={setActiveCard}
         />
 
         {/* Tabs de conteúdo */}
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
           <TabsList>
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="projects">Projetos</TabsTrigger>
+            <TabsTrigger value="clientes">Clientes & Projetos</TabsTrigger>
             <TabsTrigger value="blocked">
               Impedimentos
               {blockedQuery.data && blockedQuery.data.length > 0 && (
@@ -128,8 +133,8 @@ export function DashboardPage() {
           </TabsList>
 
           {/* Aba: Visão Geral */}
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TabsContent value="overview" className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <StatusPieChart
                 data={statusDistQuery.data}
                 isLoading={statusDistQuery.isLoading}
@@ -145,8 +150,8 @@ export function DashboardPage() {
             />
           </TabsContent>
 
-          {/* Aba: Projetos */}
-          <TabsContent value="projects">
+          {/* Aba: Clientes e Projetos (Space = Cliente, Épico = Projeto) */}
+          <TabsContent value="clientes">
             <ProjectsTable
               projects={projectsQuery.data}
               isLoading={projectsQuery.isLoading}
@@ -166,11 +171,13 @@ export function DashboardPage() {
       <TasksModal
         cardType={activeCard}
         tasks={tasksQuery.data}
+        overdueTasks={overdueQuery.data}
         projects={projectsQuery.data}
         clients={clientsQuery.data}
         isLoading={
           activeCard === 'projects' ? projectsQuery.isLoading
           : activeCard === 'clients' ? clientsQuery.isLoading
+          : activeCard === 'overdue' ? overdueQuery.isLoading
           : tasksQuery.isLoading
         }
         onClose={() => setActiveCard(null)}

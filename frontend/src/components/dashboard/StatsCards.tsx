@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, AlertTriangle, BarChart3, Layers, Users, TrendingUp, XCircle, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, Layers, TrendingUp, XCircle, ChevronRight, CalendarX } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardStats } from '@/types';
@@ -29,21 +29,21 @@ function StatCard({ title, value, subtitle, icon, color, bgColor, cardType, onCl
       )}
       onClick={isClickable ? () => onClick(cardType!) : undefined}
     >
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
-            <p className={cn('text-3xl font-bold', color)}>{value}</p>
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-muted-foreground mb-1 leading-tight">{title}</p>
+            <p className={cn('text-xl font-bold leading-none', color)}>{value}</p>
             {subtitle && (
-              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+              <p className="text-[10px] text-muted-foreground mt-1 leading-tight line-clamp-1">{subtitle}</p>
             )}
             {isClickable && (
-              <p className="text-xs text-muted-foreground/60 mt-2 flex items-center gap-0.5">
-                Ver detalhes <ChevronRight className="h-3 w-3" />
+              <p className="text-[10px] text-muted-foreground/60 mt-1.5 flex items-center gap-0.5">
+                Ver detalhes <ChevronRight className="h-2.5 w-2.5" />
               </p>
             )}
           </div>
-          <div className={cn('p-3 rounded-xl', bgColor)}>
+          <div className={cn('p-2 rounded-lg flex-shrink-0', bgColor)}>
             {icon}
           </div>
         </div>
@@ -56,14 +56,14 @@ function StatCard({ title, value, subtitle, icon, color, bgColor, cardType, onCl
 function StatCardSkeleton() {
   return (
     <Card>
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-3 w-32" />
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-6 w-12" />
+            <Skeleton className="h-2.5 w-24" />
           </div>
-          <Skeleton className="h-12 w-12 rounded-xl" />
+          <Skeleton className="h-9 w-9 rounded-lg flex-shrink-0" />
         </div>
       </CardContent>
     </Card>
@@ -72,15 +72,16 @@ function StatCardSkeleton() {
 
 interface StatsCardsProps {
   stats?: DashboardStats;
+  overdueCount?: number;
   isLoading?: boolean;
   onCardClick?: (type: CardType) => void;
 }
 
-export function StatsCards({ stats, isLoading, onCardClick }: StatsCardsProps) {
+export function StatsCards({ stats, overdueCount = 0, isLoading, onCardClick }: StatsCardsProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
-        {Array.from({ length: 8 }).map((_, i) => <StatCardSkeleton key={i} />)}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+        {Array.from({ length: 7 }).map((_, i) => <StatCardSkeleton key={i} />)}
       </div>
     );
   }
@@ -91,11 +92,20 @@ export function StatsCards({ stats, isLoading, onCardClick }: StatsCardsProps) {
     {
       title: 'Total de Tasks',
       value: stats.totalTasks,
-      subtitle: `${stats.totalProjects} projetos ativos`,
+      subtitle: `${stats.totalClients} clientes · ${stats.totalProjects} projetos`,
       icon: <Layers className="h-5 w-5 text-blue-400" />,
       color: 'text-blue-400',
       bgColor: 'bg-blue-500/20',
       cardType: 'total',
+    },
+    {
+      title: 'Progresso Geral',
+      value: `${stats.progressPercentage}%`,
+      subtitle: `${stats.completedTasks} de ${stats.totalTasks} tasks`,
+      icon: <TrendingUp className="h-5 w-5 text-purple-400" />,
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-500/20',
+      cardType: 'progress',
     },
     {
       title: 'Concluídas',
@@ -133,37 +143,20 @@ export function StatsCards({ stats, isLoading, onCardClick }: StatsCardsProps) {
       bgColor: stats.blockedTasks > 0 ? 'bg-red-500/20' : 'bg-slate-500/20',
       cardType: 'blocked',
     },
+    
     {
-      title: 'Progresso Geral',
-      value: `${stats.progressPercentage}%`,
-      subtitle: `${stats.completedTasks} de ${stats.totalTasks} tasks`,
-      icon: <TrendingUp className="h-5 w-5 text-purple-400" />,
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/20',
-      cardType: 'progress',
-    },
-    {
-      title: 'Projetos',
-      value: stats.totalProjects,
-      subtitle: 'Total de projetos',
-      icon: <BarChart3 className="h-5 w-5 text-cyan-400" />,
-      color: 'text-cyan-400',
-      bgColor: 'bg-cyan-500/20',
-      cardType: 'projects',
-    },
-    {
-      title: 'Clientes',
-      value: stats.totalClients,
-      subtitle: 'Clientes ativos',
-      icon: <Users className="h-5 w-5 text-orange-400" />,
-      color: 'text-orange-400',
-      bgColor: 'bg-orange-500/20',
-      cardType: 'clients',
+      title: 'Em Atraso',
+      value: overdueCount,
+      subtitle: 'Prazo vencido e não entregues',
+      icon: <CalendarX className="h-5 w-5 text-rose-400" />,
+      color: overdueCount > 0 ? 'text-rose-400' : 'text-muted-foreground',
+      bgColor: overdueCount > 0 ? 'bg-rose-500/20' : 'bg-slate-500/20',
+      cardType: 'overdue',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
       {cards.map((card) => (
         <StatCard key={card.title} {...card} onClick={onCardClick} />
       ))}

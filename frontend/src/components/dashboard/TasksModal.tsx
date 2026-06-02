@@ -15,12 +15,13 @@ export type CardType =
   | 'blocked'
   | 'progress'
   | 'projects'
-  | 'clients';
+  | 'clients'
+  | 'overdue';
 
 const JIRA_BASE = import.meta.env.VITE_JIRA_BASE_URL || 'https://valcann-project.atlassian.net';
 
 const TASK_CARD_CONFIG: Record<
-  Exclude<CardType, 'projects' | 'clients'>,
+  Exclude<CardType, 'projects' | 'clients' | 'overdue'>,
   { title: string; color: string; borderColor: string; filter: (t: TaskDetail) => boolean }
 > = {
   total: {
@@ -64,13 +65,14 @@ const TASK_CARD_CONFIG: Record<
 interface TasksModalProps {
   cardType: CardType | null;
   tasks?: TaskDetail[];
+  overdueTasks?: TaskDetail[];
   projects?: ProjectSummary[];
   clients?: ClientSummary[];
   isLoading?: boolean;
   onClose: () => void;
 }
 
-export function TasksModal({ cardType, tasks, projects, clients, isLoading, onClose }: TasksModalProps) {
+export function TasksModal({ cardType, tasks, overdueTasks, projects, clients, isLoading, onClose }: TasksModalProps) {
   useEffect(() => {
     if (!cardType) return;
     document.body.style.overflow = 'hidden';
@@ -110,6 +112,25 @@ export function TasksModal({ cardType, tasks, projects, clients, isLoading, onCl
         onClose={onClose}
       >
         {isLoading ? <LoadingSkeleton /> : <ClientsTable clients={clients ?? []} />}
+      </ModalShell>
+    );
+  }
+
+  if (cardType === 'overdue') {
+    const count = overdueTasks?.length ?? 0;
+    return (
+      <ModalShell
+        title="Atividades em Atraso"
+        subtitle={isLoading ? 'Carregando...' : `${count} atividade${count !== 1 ? 's' : ''} em atraso`}
+        color="text-rose-400"
+        borderColor="border-rose-500/30"
+        onClose={onClose}
+      >
+        {isLoading ? <LoadingSkeleton /> : count === 0 ? (
+          <EmptyState message="Nenhuma atividade em atraso" />
+        ) : (
+          <OverdueTasksTable tasks={overdueTasks ?? []} />
+        )}
       </ModalShell>
     );
   }
@@ -187,8 +208,8 @@ function TasksTable({ tasks }: { tasks: TaskDetail[] }) {
         <tr>
           <th className="text-left py-3 px-4 text-muted-foreground font-medium whitespace-nowrap">Key</th>
           <th className="text-left py-3 px-4 text-muted-foreground font-medium">Resumo</th>
-          <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden md:table-cell whitespace-nowrap">Projeto</th>
-          <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden lg:table-cell whitespace-nowrap">Épico</th>
+          <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden md:table-cell whitespace-nowrap">Cliente</th>
+          <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden lg:table-cell whitespace-nowrap">Projeto</th>
           <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden lg:table-cell whitespace-nowrap">Responsável</th>
           <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden md:table-cell whitespace-nowrap">Prioridade</th>
           <th className="text-left py-3 px-4 text-muted-foreground font-medium whitespace-nowrap">Status</th>
@@ -260,8 +281,7 @@ function ProjectsTable({ projects }: { projects: ProjectSummary[] }) {
     <table className="w-full text-sm">
       <thead className="sticky top-0 bg-card z-10 border-b border-border/50">
         <tr>
-          <th className="text-left py-3 px-4 text-muted-foreground font-medium whitespace-nowrap">Projeto</th>
-          <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden md:table-cell whitespace-nowrap">Cliente</th>
+          <th className="text-left py-3 px-4 text-muted-foreground font-medium whitespace-nowrap">Cliente</th>
           <th className="text-right py-3 px-4 text-muted-foreground font-medium whitespace-nowrap">Total</th>
           <th className="text-right py-3 px-4 text-muted-foreground font-medium hidden sm:table-cell whitespace-nowrap">Concluídas</th>
           <th className="text-right py-3 px-4 text-muted-foreground font-medium hidden sm:table-cell whitespace-nowrap">Andamento</th>
@@ -286,9 +306,6 @@ function ProjectsTable({ projects }: { projects: ProjectSummary[] }) {
                 </a>
                 <span className="text-foreground text-xs">{p.name}</span>
               </div>
-            </td>
-            <td className="py-3 px-4 hidden md:table-cell">
-              <span className="text-muted-foreground text-xs">{p.clientName}</span>
             </td>
             <td className="py-3 px-4 text-right">
               <span className="text-foreground font-medium text-xs">{p.totalTasks}</span>
@@ -424,5 +441,79 @@ function EmptyState({ message = 'Nenhuma task encontrada' }: { message?: string 
       </svg>
       <p className="text-sm">{message}</p>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Overdue tasks table
+
+function OverdueTasksTable({ tasks }: { tasks: TaskDetail[] }) {
+  return (
+    <table className="w-full text-sm">
+      <thead className="sticky top-0 bg-card z-10 border-b border-border/50">
+        <tr>
+          <th className="text-left py-3 px-4 text-muted-foreground font-medium whitespace-nowrap">Key</th>
+          <th className="text-left py-3 px-4 text-muted-foreground font-medium">Resumo</th>
+          <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden md:table-cell whitespace-nowrap">Cliente</th>
+          <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden md:table-cell whitespace-nowrap">Projeto</th>
+          <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden lg:table-cell whitespace-nowrap">Responsável</th>
+          <th className="text-left py-3 px-4 text-muted-foreground font-medium hidden lg:table-cell whitespace-nowrap">Prioridade</th>
+          <th className="text-left py-3 px-4 text-muted-foreground font-medium whitespace-nowrap">Status</th>
+          <th className="text-left py-3 px-4 text-rose-400 font-medium whitespace-nowrap">Prazo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {tasks.map((task) => {
+          const daysLate = task.dueDate
+            ? Math.floor((Date.now() - new Date(task.dueDate).getTime()) / 86_400_000)
+            : 0;
+          return (
+            <tr key={task.id} className="border-b border-border/30 hover:bg-secondary/30 transition-colors">
+              <td className="py-2.5 px-4">
+                <a
+                  href={`${JIRA_BASE}/browse/${task.key}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-blue-400 hover:text-blue-300 font-mono text-xs whitespace-nowrap"
+                >
+                  {task.key}
+                  <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                </a>
+              </td>
+              <td className="py-2.5 px-4 max-w-xs">
+                <span className="line-clamp-2 text-foreground leading-snug">{task.summary}</span>
+              </td>
+              <td className="py-2.5 px-4 hidden md:table-cell">
+                <span className="text-muted-foreground text-xs whitespace-nowrap">{task.projectName}</span>
+              </td>
+              <td className="py-2.5 px-4 hidden md:table-cell">
+                <span className="text-muted-foreground text-xs">{task.epicName || '-'}</span>
+              </td>
+              <td className="py-2.5 px-4 hidden lg:table-cell">
+                <span className="text-muted-foreground text-xs whitespace-nowrap">{task.assignee || '-'}</span>
+              </td>
+              <td className="py-2.5 px-4 hidden lg:table-cell">
+                <span className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+                  <span
+                    className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: getPriorityColor(task.priority) }}
+                  />
+                  {task.priority}
+                </span>
+              </td>
+              <td className="py-2.5 px-4">
+                <StatusBadge status={task.status} category={task.statusCategory} isBlocked={task.isBlocked} />
+              </td>
+              <td className="py-2.5 px-4">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-rose-400 font-medium whitespace-nowrap">{formatDate(task.dueDate)}</span>
+                  <span className="text-xs text-rose-400/70 whitespace-nowrap">{daysLate}d em atraso</span>
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }

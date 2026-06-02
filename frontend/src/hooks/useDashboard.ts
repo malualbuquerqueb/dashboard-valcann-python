@@ -5,6 +5,8 @@ import {
   fetchClients,
   fetchBlockedTasks,
   fetchTasks,
+  fetchOverdueTasks,
+  fetchEpics,
   fetchStatusDistribution,
   fetchProjectsProgress,
   fetchFilterOptions,
@@ -37,11 +39,20 @@ export function useClients() {
   });
 }
 
-export function useBlockedTasks(projectKey?: string) {
+export function useBlockedTasks(projectKey?: string, epicKey?: string) {
   return useQuery({
-    queryKey: ['blocked-tasks', projectKey],
-    queryFn: () => fetchBlockedTasks(projectKey),
+    queryKey: ['blocked-tasks', projectKey, epicKey],
+    queryFn: () => fetchBlockedTasks(projectKey, epicKey),
     refetchInterval: REFETCH_INTERVAL,
+  });
+}
+
+export function useEpics(projectKey?: string) {
+  return useQuery({
+    queryKey: ['epics', projectKey],
+    queryFn: () => fetchEpics(projectKey!),
+    enabled: !!projectKey,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -54,19 +65,28 @@ export function useTasks(filters: DashboardFilters = {}, enabled = false) {
   });
 }
 
-export function useStatusDistribution(projectKey?: string) {
+export function useStatusDistribution(projectKey?: string, epicKey?: string) {
   return useQuery({
-    queryKey: ['status-distribution', projectKey],
-    queryFn: () => fetchStatusDistribution(projectKey),
+    queryKey: ['status-distribution', projectKey, epicKey],
+    queryFn: () => fetchStatusDistribution(projectKey, epicKey),
     refetchInterval: REFETCH_INTERVAL,
   });
 }
 
-export function useProjectsProgress() {
+export function useProjectsProgress(filters: DashboardFilters = {}) {
   return useQuery({
-    queryKey: ['projects-progress'],
-    queryFn: fetchProjectsProgress,
+    queryKey: ['projects-progress', filters],
+    queryFn: () => fetchProjectsProgress(filters),
     refetchInterval: REFETCH_INTERVAL,
+  });
+}
+
+export function useOverdueTasks(filters: DashboardFilters = {}, enabled = false) {
+  return useQuery({
+    queryKey: ['overdue-tasks', filters],
+    queryFn: () => fetchOverdueTasks(filters),
+    refetchInterval: REFETCH_INTERVAL,
+    enabled,
   });
 }
 

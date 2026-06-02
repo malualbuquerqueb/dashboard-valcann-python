@@ -32,7 +32,7 @@ export function StatusPieChart({ data, isLoading }: StatusPieChartProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-foreground text-base">Distribuição por Status</CardTitle>
+        <CardTitle className="text-foreground text-base">Distribuição das Tasks por Status</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -61,11 +61,14 @@ export function StatusPieChart({ data, isLoading }: StatusPieChartProps) {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(222 47% 14%)',
-                  border: '1px solid hsl(222 47% 20%)',
+                  backgroundColor: 'hsl(222 47% 10%)',
+                  border: '1px solid hsl(222 47% 28%)',
                   borderRadius: '8px',
-                  color: 'hsl(213 31% 91%)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                  padding: '10px 14px',
                 }}
+                labelStyle={{ color: 'hsl(213 31% 91%)', fontWeight: 600, marginBottom: '6px' }}
+                itemStyle={{ color: 'hsl(215 20% 75%)' }}
                 formatter={(value: number, name: string) => [value, name]}
               />
               <Legend

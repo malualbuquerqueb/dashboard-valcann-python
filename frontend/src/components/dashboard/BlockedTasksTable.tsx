@@ -56,6 +56,7 @@ export function BlockedTasksTable({ tasks, isLoading }: BlockedTasksTableProps) 
                 <tr className="border-b border-border/50">
                   <th className="text-left py-2 px-3 text-muted-foreground font-medium">Key</th>
                   <th className="text-left py-2 px-3 text-muted-foreground font-medium">Resumo</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium hidden md:table-cell">Cliente</th>
                   <th className="text-left py-2 px-3 text-muted-foreground font-medium hidden md:table-cell">Projeto</th>
                   <th className="text-left py-2 px-3 text-muted-foreground font-medium hidden lg:table-cell">Responsável</th>
                   <th className="text-left py-2 px-3 text-muted-foreground font-medium hidden lg:table-cell">Prioridade</th>
@@ -85,6 +86,9 @@ export function BlockedTasksTable({ tasks, isLoading }: BlockedTasksTableProps) 
                     </td>
                     <td className="py-2.5 px-3 hidden md:table-cell">
                       <span className="text-muted-foreground text-xs">{task.projectName}</span>
+                    </td>
+                    <td className="py-2.5 px-3 hidden md:table-cell">
+                      <span className="text-muted-foreground text-xs">{task.epicName || '-'}</span>
                     </td>
                     <td className="py-2.5 px-3 hidden lg:table-cell">
                       <span className="text-muted-foreground text-xs">{task.assignee || '-'}</span>

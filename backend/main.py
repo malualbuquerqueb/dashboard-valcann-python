@@ -13,6 +13,8 @@ from dashboard_service import (
     get_projects_summary,
     get_clients_summary,
     get_blocked_tasks_list,
+    get_overdue_tasks_list,
+    get_epics_list,
     get_tasks_list,
     get_status_distribution,
     get_projects_progress,
@@ -115,13 +117,42 @@ async def clients():
 
 
 @app.get("/api/dashboard/blocked")
-async def blocked(projectKey: Optional[str] = Query(None)):
+async def blocked(
+    projectKey: Optional[str] = Query(None),
+    epicKey: Optional[str] = Query(None),
+):
     try:
-        data = await get_blocked_tasks_list(projectKey)
+        data = await get_blocked_tasks_list(projectKey, epicKey)
         return {"success": True, "data": data}
     except Exception as e:
         print(f"[GET /blocked] {e}")
         raise HTTPException(status_code=500, detail="Erro ao buscar tarefas bloqueadas")
+
+
+@app.get("/api/dashboard/epics")
+async def epics(projectKey: str = Query(...)):
+    try:
+        data = await get_epics_list(projectKey)
+        return {"success": True, "data": data}
+    except Exception as e:
+        print(f"[GET /epics] {e}")
+        raise HTTPException(status_code=500, detail="Erro ao buscar épicos")
+
+
+@app.get("/api/dashboard/overdue")
+async def overdue(
+    projectKey: Optional[str] = Query(None),
+    sprintId: Optional[str] = Query(None),
+    assigneeId: Optional[str] = Query(None),
+    epicKey: Optional[str] = Query(None),
+    clientId: Optional[str] = Query(None),
+):
+    try:
+        data = await get_overdue_tasks_list(_filters(projectKey, None, sprintId, assigneeId, epicKey, clientId))
+        return {"success": True, "data": data}
+    except Exception as e:
+        print(f"[GET /overdue] {e}")
+        raise HTTPException(status_code=500, detail="Erro ao buscar atividades em atraso")
 
 
 @app.get("/api/dashboard/tasks")
@@ -142,9 +173,12 @@ async def tasks(
 
 
 @app.get("/api/dashboard/status-distribution")
-async def status_distribution(projectKey: Optional[str] = Query(None)):
+async def status_distribution(
+    projectKey: Optional[str] = Query(None),
+    epicKey: Optional[str] = Query(None),
+):
     try:
-        data = await get_status_distribution(projectKey)
+        data = await get_status_distribution(projectKey, epicKey)
         return {"success": True, "data": data}
     except Exception as e:
         print(f"[GET /status-distribution] {e}")
@@ -152,9 +186,19 @@ async def status_distribution(projectKey: Optional[str] = Query(None)):
 
 
 @app.get("/api/dashboard/projects-progress")
-async def projects_progress():
+async def projects_progress(
+    projectKey: Optional[str] = Query(None),
+    epicKey: Optional[str] = Query(None),
+    assigneeId: Optional[str] = Query(None),
+):
     try:
-        data = await get_projects_progress()
+        data = await get_projects_progress({
+            k: v for k, v in {
+                "projectKey": projectKey,
+                "epicKey": epicKey,
+                "assigneeId": assigneeId,
+            }.items() if v is not None
+        })
         return {"success": True, "data": data}
     except Exception as e:
         print(f"[GET /projects-progress] {e}")

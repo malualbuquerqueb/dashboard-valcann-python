@@ -8,6 +8,7 @@ import {
   StatusDistribution,
   ProjectProgress,
   FilterOptions,
+  EpicOption,
   DashboardFilters,
   ApiResponse,
 } from '../types';
@@ -42,9 +43,17 @@ export async function fetchClients(): Promise<ClientSummary[]> {
   return res.data.data;
 }
 
-export async function fetchBlockedTasks(projectKey?: string): Promise<BlockedTask[]> {
-  const res = await apiClient.get<ApiResponse<BlockedTask[]>>('/dashboard/blocked', {
-    params: projectKey ? { projectKey } : {},
+export async function fetchBlockedTasks(projectKey?: string, epicKey?: string): Promise<BlockedTask[]> {
+  const params: Record<string, string> = {};
+  if (projectKey) params.projectKey = projectKey;
+  if (epicKey) params.epicKey = epicKey;
+  const res = await apiClient.get<ApiResponse<BlockedTask[]>>('/dashboard/blocked', { params });
+  return res.data.data;
+}
+
+export async function fetchEpics(projectKey: string): Promise<EpicOption[]> {
+  const res = await apiClient.get<ApiResponse<EpicOption[]>>('/dashboard/epics', {
+    params: { projectKey },
   });
   return res.data.data;
 }
@@ -56,15 +65,25 @@ export async function fetchTasks(filters: DashboardFilters = {}): Promise<TaskDe
   return res.data.data;
 }
 
-export async function fetchStatusDistribution(projectKey?: string): Promise<StatusDistribution[]> {
-  const res = await apiClient.get<ApiResponse<StatusDistribution[]>>('/dashboard/status-distribution', {
-    params: projectKey ? { projectKey } : {},
+export async function fetchStatusDistribution(projectKey?: string, epicKey?: string): Promise<StatusDistribution[]> {
+  const params: Record<string, string> = {};
+  if (projectKey) params.projectKey = projectKey;
+  if (epicKey) params.epicKey = epicKey;
+  const res = await apiClient.get<ApiResponse<StatusDistribution[]>>('/dashboard/status-distribution', { params });
+  return res.data.data;
+}
+
+export async function fetchProjectsProgress(filters: DashboardFilters = {}): Promise<ProjectProgress[]> {
+  const res = await apiClient.get<ApiResponse<ProjectProgress[]>>('/dashboard/projects-progress', {
+    params: buildParams(filters),
   });
   return res.data.data;
 }
 
-export async function fetchProjectsProgress(): Promise<ProjectProgress[]> {
-  const res = await apiClient.get<ApiResponse<ProjectProgress[]>>('/dashboard/projects-progress');
+export async function fetchOverdueTasks(filters: DashboardFilters = {}): Promise<TaskDetail[]> {
+  const res = await apiClient.get<ApiResponse<TaskDetail[]>>('/dashboard/overdue', {
+    params: buildParams(filters),
+  });
   return res.data.data;
 }
 

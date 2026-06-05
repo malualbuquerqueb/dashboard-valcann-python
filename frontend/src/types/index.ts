@@ -91,6 +91,7 @@ export interface StatusDistribution {
 
 export interface ProjectProgress {
   name: string;
+  clientName?: string;
   total: number;
   completed: number;
   inProgress: number;
@@ -114,6 +115,11 @@ export interface DashboardFilters {
   status?: string;
   assigneeId?: string;
   epicKey?: string;
+}
+
+export interface EpicOption {
+  key: string;
+  name: string;
 }
 
 export interface ApiResponse<T> {

@@ -6,6 +6,7 @@ const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 60000,
+  withCredentials: true, 
 });
 
 apiClient.interceptors.response.use(
@@ -13,6 +14,9 @@ apiClient.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
     const message = error.response?.data?.error || error.message;
+    if (status === 401) {
+      window.location.reload();
+    }
     console.error(`[API Error] ${status}: ${message}`);
     return Promise.reject(error);
   }

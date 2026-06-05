@@ -23,7 +23,11 @@ import {
 import { DashboardFilters } from '@/types';
 import { AlertCircle, Activity } from 'lucide-react';
 
+import { useAuth } from '@/context/AuthContext';
+import { LogOut } from 'lucide-react';
+
 export function DashboardPage() {
+  const { logout } = useAuth();
   const [filters, setFilters] = useState<DashboardFilters>({});
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
@@ -58,6 +62,7 @@ export function DashboardPage() {
       {/* Header */}
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-[1800px] mx-auto px-3 sm:px-4 lg:px-6 py-3">
+        <div className="flex items-center justify-between gap-3 w-full">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
               <Activity className="h-4 w-4 text-primary" />
@@ -67,6 +72,15 @@ export function DashboardPage() {
               <p className="text-xs text-muted-foreground">Integração Jira Cloud</p>
             </div>
           </div>
+        <button
+    onClick={logout}
+    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition px-2 py-1.5 rounded-lg hover:bg-card border border-transparent hover:border-border/50"
+    title="Sair"
+  >
+    <LogOut className="h-3.5 w-3.5" />
+    <span className="hidden sm:inline">Sair</span>
+  </button>
+        </div>
         </div>
       </header>
 

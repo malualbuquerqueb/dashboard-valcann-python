@@ -1,9 +1,11 @@
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
+import jwt
+from pydantic import BaseModel
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Depends, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
@@ -61,8 +63,74 @@ async def health():
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
+#autenticacao
+DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD")
+JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", 8))
 
-@app.get("/api/dashboard/health")
+if not DASHBOARD_PASSWORD:
+    raise RuntimeError("DASHBOARD_PASSWORD não definida no .env")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET não definida no .env")
+class LoginRequest(BaseModel):
+    password: str
+
+def _create_token() -> str:
+    expire = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS)
+    return jwt.encode(
+        {"exp": expire, "sub": "dashboard"},
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM
+    )
+
+def _verify_token(token: str) -> bool:
+    try:
+        jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return True
+    except jwt.ExpiredSignatureError:
+        return False
+    except jwt.InvalidTokenError:
+        return False
+    
+def require_auth(access_token: Optional[str] = Cookie(default=None)):
+    if not access_token or not _verify_token(access_token):
+        raise HTTPException(status_code=401, detail="Não autenticado")
+
+@app.post("/api/auth/login")
+async def login(body: LoginRequest, response: Response):
+    # Compara com a senha do .env — nunca envia a senha ao frontend
+    if body.password != DASHBOARD_PASSWORD:
+        raise HTTPException(status_code=401, detail="Senha incorreta")
+
+    token = _create_token()
+
+    # Define cookie HttpOnly — JavaScript não consegue ler este cookie
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=os.getenv("ENVIRONMENT") == "production",
+        max_age=JWT_EXPIRE_HOURS * 3600,
+        path="/",
+    )
+    return {"authenticated": True}
+
+
+@app.post("/api/auth/logout")
+async def logout(response: Response):
+    response.delete_cookie(key="access_token", path="/")
+    return {"authenticated": False}
+
+
+@app.get("/api/auth/verify")
+async def verify(access_token: Optional[str] = Cookie(default=None)):
+    if access_token and _verify_token(access_token):
+        return {"authenticated": True}
+    raise HTTPException(status_code=401, detail="Não autenticado")
+
+@app.get("/api/dashboard/health", dependencies=[Depends(require_auth)])
 async def dashboard_health():
     return {
         "success": True,
@@ -72,7 +140,7 @@ async def dashboard_health():
     }
 
 
-@app.get("/api/dashboard/stats")
+@app.get("/api/dashboard/stats", dependencies=[Depends(require_auth)])
 async def stats(
     projectKey: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
@@ -89,7 +157,7 @@ async def stats(
         raise HTTPException(status_code=500, detail="Erro ao buscar estatísticas")
 
 
-@app.get("/api/dashboard/projects")
+@app.get("/api/dashboard/projects", dependencies=[Depends(require_auth)])
 async def projects(
     projectKey: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
@@ -106,7 +174,7 @@ async def projects(
         raise HTTPException(status_code=500, detail="Erro ao buscar projetos")
 
 
-@app.get("/api/dashboard/clients")
+@app.get("/api/dashboard/clients", dependencies=[Depends(require_auth)])
 async def clients():
     try:
         data = await get_clients_summary()
@@ -116,7 +184,7 @@ async def clients():
         raise HTTPException(status_code=500, detail="Erro ao buscar clientes")
 
 
-@app.get("/api/dashboard/blocked")
+@app.get("/api/dashboard/blocked", dependencies=[Depends(require_auth)])
 async def blocked(
     projectKey: Optional[str] = Query(None),
     epicKey: Optional[str] = Query(None),
@@ -129,7 +197,7 @@ async def blocked(
         raise HTTPException(status_code=500, detail="Erro ao buscar tarefas bloqueadas")
 
 
-@app.get("/api/dashboard/epics")
+@app.get("/api/dashboard/epics", dependencies=[Depends(require_auth)])
 async def epics(projectKey: str = Query(...)):
     try:
         data = await get_epics_list(projectKey)
@@ -139,7 +207,7 @@ async def epics(projectKey: str = Query(...)):
         raise HTTPException(status_code=500, detail="Erro ao buscar épicos")
 
 
-@app.get("/api/dashboard/overdue")
+@app.get("/api/dashboard/overdue", dependencies=[Depends(require_auth)])
 async def overdue(
     projectKey: Optional[str] = Query(None),
     sprintId: Optional[str] = Query(None),
@@ -155,7 +223,7 @@ async def overdue(
         raise HTTPException(status_code=500, detail="Erro ao buscar atividades em atraso")
 
 
-@app.get("/api/dashboard/tasks")
+@app.get("/api/dashboard/tasks", dependencies=[Depends(require_auth)])
 async def tasks(
     projectKey: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
@@ -172,7 +240,7 @@ async def tasks(
         raise HTTPException(status_code=500, detail="Erro ao buscar tarefas")
 
 
-@app.get("/api/dashboard/status-distribution")
+@app.get("/api/dashboard/status-distribution", dependencies=[Depends(require_auth)])
 async def status_distribution(
     projectKey: Optional[str] = Query(None),
     epicKey: Optional[str] = Query(None),
@@ -185,7 +253,7 @@ async def status_distribution(
         raise HTTPException(status_code=500, detail="Erro ao buscar distribuição de status")
 
 
-@app.get("/api/dashboard/projects-progress")
+@app.get("/api/dashboard/projects-progress", dependencies=[Depends(require_auth)])
 async def projects_progress(
     projectKey: Optional[str] = Query(None),
     epicKey: Optional[str] = Query(None),
@@ -205,7 +273,7 @@ async def projects_progress(
         raise HTTPException(status_code=500, detail="Erro ao buscar progresso dos projetos")
 
 
-@app.get("/api/dashboard/filter-options")
+@app.get("/api/dashboard/filter-options", dependencies=[Depends(require_auth)])
 async def filter_options():
     try:
         data = await get_filter_options()

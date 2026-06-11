@@ -26,4 +26,4 @@ services:
 networks:
   traefik:
     external: true
-    name: REDE_TRAEFIK
+    name: proxy

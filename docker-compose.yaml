@@ -1,0 +1,29 @@
+services:
+  valcann-backend:
+    build: ./backend
+    container_name: valcann-backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    networks: [traefik]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.valcann-api.rule=Host(`mariajulia.cloud`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.valcann-api.entrypoints=web"
+      - "traefik.http.services.valcann-api.loadbalancer.server.port=3001"
+
+  valcann-frontend:
+    build: ./frontend
+    container_name: valcann-frontend
+    restart: unless-stopped
+    networks: [traefik]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.valcann-front.rule=Host(`mariajulia.cloud`)"
+      - "traefik.http.routers.valcann-front.entrypoints=web"
+      - "traefik.http.routers.valcann-front.priority=1"
+      - "traefik.http.services.valcann-front.loadbalancer.server.port=80"
+
+networks:
+  traefik:
+    external: true
+    name: REDE_TRAEFIK

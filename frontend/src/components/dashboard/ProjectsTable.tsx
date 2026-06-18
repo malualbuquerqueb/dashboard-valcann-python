@@ -91,8 +91,9 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
           </td>
           <td className="py-2 px-3 text-sm text-muted-foreground pl-6">
             <span className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400/60" />
-              {epic.name}
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400/60 flex-shrink-0" />
+              <span>{epic.name}</span>
+              <span className="text-xs text-purple-400/60 font-normal hidden lg:inline">projeto</span>
             </span>
           </td>
           <td className="py-2 px-3 text-center text-xs text-muted-foreground">{epic.totalTasks}</td>
@@ -118,7 +119,7 @@ export function ProjectsTable({ projects, isLoading }: ProjectsTableProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-foreground">Projetos e Épicos</CardTitle>
+        <CardTitle className="text-foreground">Clientes e Projetos</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -140,7 +141,10 @@ export function ProjectsTable({ projects, isLoading }: ProjectsTableProps) {
                 <tr className="border-b border-border/50">
                   <th className="w-8 py-2 px-3" />
                   <th className="text-left py-2 px-3 text-muted-foreground font-medium">Key</th>
-                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Nome</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">
+                    <span className="text-cyan-400/80">Cliente</span>
+                    <span className="text-muted-foreground/50 ml-1 text-xs font-normal">/ Projeto</span>
+                  </th>
                   <th className="text-center py-2 px-3 text-muted-foreground font-medium">Total</th>
                   <th className="text-center py-2 px-3 text-muted-foreground font-medium">Concluídas</th>
                   <th className="text-center py-2 px-3 text-muted-foreground font-medium">Andamento</th>

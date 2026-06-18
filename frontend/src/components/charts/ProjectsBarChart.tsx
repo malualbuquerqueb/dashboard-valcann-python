@@ -11,6 +11,10 @@ interface ProjectsBarChartProps {
   isLoading?: boolean;
 }
 
+function trunc(str: string, max: number) {
+  return str.length > max ? str.slice(0, max) + '…' : str;
+}
+
 export function ProjectsBarChart({ data, isLoading }: ProjectsBarChartProps) {
   const tooltipStyle = {
     contentStyle: {
@@ -21,10 +25,19 @@ export function ProjectsBarChart({ data, isLoading }: ProjectsBarChartProps) {
     },
   };
 
+  const displayData = (data ?? []).slice(0, 8).map(item => {
+    const client = item.clientName ?? '';
+    const displayName = client
+      ? `${trunc(client, 13)} / ${trunc(item.name, 15)}`
+      : trunc(item.name, 26);
+    const fullName = client ? `${client} / ${item.name}` : item.name;
+    return { ...item, displayName, fullName };
+  });
+
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-foreground text-base">Tasks por Projeto</CardTitle>
+        <CardTitle className="text-foreground text-base">Tasks por Projeto (Épico)</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -36,24 +49,31 @@ export function ProjectsBarChart({ data, isLoading }: ProjectsBarChartProps) {
         ) : !data || data.length === 0 ? (
           <p className="text-center py-8 text-muted-foreground text-sm">Sem dados disponíveis</p>
         ) : (
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={340}>
             <BarChart
-              data={data.slice(0, 8)}
-              margin={{ top: 5, right: 10, left: -20, bottom: 60 }}
+              data={displayData}
+              margin={{ top: 5, right: 15, left: -20, bottom: 80 }}
               barCategoryGap="30%"
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 47% 20%)" vertical={false} />
               <XAxis
-                dataKey="name"
+                dataKey="displayName"
                 tick={{ fill: 'hsl(215 20% 65%)', fontSize: 11 }}
-                angle={-35}
+                angle={-40}
                 textAnchor="end"
                 interval={0}
-                height={60}
+                height={80}
               />
               <YAxis tick={{ fill: 'hsl(215 20% 65%)', fontSize: 11 }} />
-              <Tooltip {...tooltipStyle} />
+              <Tooltip
+                {...tooltipStyle}
+                labelFormatter={(_, payload) =>
+                  (payload as { payload: { fullName: string } }[])[0]?.payload?.fullName ?? ''
+                }
+              />
               <Legend
+                verticalAlign="top"
+                wrapperStyle={{ paddingBottom: '12px' }}
                 formatter={(value) => (
                   <span style={{ color: 'hsl(215 20% 65%)', fontSize: '12px' }}>{value}</span>
                 )}
@@ -112,10 +132,17 @@ export function ProgressBarsChart({ data, isLoading }: ProgressBarsChartProps) {
               project.progress >= 25 ? '#f59e0b' : '#ef4444';
 
             return (
-              <div key={project.name} className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-foreground font-medium truncate max-w-[160px]">{project.name}</span>
-                  <span className="text-muted-foreground ml-2 tabular-nums">{project.progress}%</span>
+              <div key={`${project.clientName ?? ''}-${project.name}`} className="space-y-1.5">
+                <div className="flex justify-between items-start text-xs">
+                  <div className="flex flex-col min-w-0 mr-2">
+                    {project.clientName && (
+                      <span className="text-muted-foreground/60 text-[10px] leading-tight truncate">
+                        {project.clientName}
+                      </span>
+                    )}
+                    <span className="text-foreground font-medium truncate max-w-[160px]">{project.name}</span>
+                  </div>
+                  <span className="text-muted-foreground flex-shrink-0 tabular-nums">{project.progress}%</span>
                 </div>
                 <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
                   <div

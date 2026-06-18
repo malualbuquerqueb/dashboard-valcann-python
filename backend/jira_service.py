@@ -5,6 +5,10 @@ from jira_client import get_client
 BLOCKED_LABELS = ["blocked", "impedimento", "bloqueado", "impediment", "block"]
 BLOCKED_STATUSES = ["blocked", "bloqueado", "impedido"]
 
+# Apenas Task e Story contam como itens de trabalho nos KPIs
+WORK_ITEM_TYPES = ("Task", "Story")
+_WORK_ITEM_JQL = "issuetype in (Task, Story)"
+
 SEARCH_FIELDS = ",".join([
     "summary", "status", "assignee", "reporter", "priority",
     "issuetype", "project", "labels", "created", "updated",
@@ -19,12 +23,10 @@ async def search_issues(jql: str, next_page_token: Optional[str] = None, max_res
     if next_page_token:
         params["nextPageToken"] = next_page_token
 
-    async with get_client() as client:
-        print(f"[Jira API] GET /search/jql jql={jql[:80]}")
-        response = client.get("/search/jql", params=params)
-        r = await response
-        r.raise_for_status()
-        return r.json()
+    print(f"[Jira API] GET /search/jql jql={jql[:80]}")
+    r = await get_client().get("/search/jql", params=params)
+    r.raise_for_status()
+    return r.json()
 
 
 async def search_all_issues(jql: str) -> list[dict]:
@@ -47,18 +49,18 @@ async def get_projects() -> list[dict]:
     all_projects: list[dict] = []
     start_at = 0
     max_results = 50
+    client = get_client()
 
-    async with get_client() as client:
-        while True:
-            print(f"[Jira API] GET /project/search startAt={start_at}")
-            r = await client.get("/project/search", params={"startAt": start_at, "maxResults": max_results, "orderBy": "name"})
-            r.raise_for_status()
-            data = r.json()
-            all_projects.extend(data.get("values", []))
+    while True:
+        print(f"[Jira API] GET /project/search startAt={start_at}")
+        r = await client.get("/project/search", params={"startAt": start_at, "maxResults": max_results, "orderBy": "name"})
+        r.raise_for_status()
+        data = r.json()
+        all_projects.extend(data.get("values", []))
 
-            if data.get("isLast") or len(data.get("values", [])) == 0:
-                break
-            start_at += max_results
+        if data.get("isLast") or len(data.get("values", [])) == 0:
+            break
+        start_at += max_results
 
     return all_projects
 
@@ -73,13 +75,15 @@ async def get_issues_for_epic(epic_key: str, project_key: str) -> list[dict]:
     return await search_all_issues(jql)
 
 
-async def get_blocked_issues(project_key: Optional[str] = None) -> list[dict]:
+async def get_blocked_issues(project_key: Optional[str] = None, epic_key: Optional[str] = None) -> list[dict]:
     label_conditions = " OR ".join(f'labels = "{l}"' for l in BLOCKED_LABELS)
     status_conditions = " OR ".join(f'status = "{s}"' for s in BLOCKED_STATUSES)
 
-    jql = f"({label_conditions} OR {status_conditions})"
+    jql = f"{_WORK_ITEM_JQL} AND ({label_conditions} OR {status_conditions})"
     if project_key:
-        jql = f'project = "{project_key}" AND ({jql})'
+        jql = f'project = "{project_key}" AND {jql}'
+    if epic_key:
+        jql += f' AND (parent = "{epic_key}" OR "Epic Link" = "{epic_key}")'
     jql += " ORDER BY created DESC"
 
     return await search_all_issues(jql)
@@ -92,7 +96,8 @@ async def get_issues_by_project(
     sprint_id: Optional[str] = None,
     epic_key: Optional[str] = None,
 ) -> list[dict]:
-    jql = f'project = "{project_key}"'
+    # Apenas Task e Story entram nos KPIs; Epics são buscados separadamente via get_epics_for_project
+    jql = f'project = "{project_key}" AND {_WORK_ITEM_JQL}'
 
     if status:
         jql += f' AND status = "{status}"'
@@ -105,6 +110,12 @@ async def get_issues_by_project(
 
     jql += " ORDER BY created DESC"
     return await search_all_issues(jql)
+
+
+def is_work_item(issue: dict) -> bool:
+    """Retorna True apenas para Task e Story — os tipos contabilizados nos KPIs."""
+    issuetype = ((issue.get("fields") or {}).get("issuetype") or {}).get("name", "")
+    return issuetype in WORK_ITEM_TYPES
 
 
 async def get_sprints_for_project(project_key: str) -> list[dict]:

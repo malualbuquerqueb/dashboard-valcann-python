@@ -4,12 +4,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { FilterOptions, DashboardFilters } from '@/types';
+import { FilterOptions, EpicOption, DashboardFilters } from '@/types';
 import { cn } from '@/utils/cn';
 
 interface DashboardFiltersProps {
   filters: DashboardFilters;
   options?: FilterOptions;
+  epics?: EpicOption[];
+  epicsLoading?: boolean;
   isLoading?: boolean;
   onChange: (filters: DashboardFilters) => void;
   lastUpdated?: Date;
@@ -22,6 +24,7 @@ function FilterSelect({
   options,
   onChange,
   disabled,
+  hint,
 }: {
   label: string;
   value?: string;
@@ -29,12 +32,13 @@ function FilterSelect({
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
   disabled?: boolean;
+  hint?: string;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs text-muted-foreground font-medium">{label}</label>
       <Select value={value || 'all'} onValueChange={val => onChange(val === 'all' ? '' : val)} disabled={disabled}>
-        <SelectTrigger className="h-9 text-sm min-w-[160px]">
+        <SelectTrigger className="h-8 text-xs min-w-[140px] lg:min-w-[160px]">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -44,6 +48,7 @@ function FilterSelect({
           ))}
         </SelectContent>
       </Select>
+      {hint && <p className="text-xs text-muted-foreground/60">{hint}</p>}
     </div>
   );
 }
@@ -51,6 +56,8 @@ function FilterSelect({
 export function DashboardFiltersBar({
   filters,
   options,
+  epics,
+  epicsLoading,
   isLoading,
   onChange,
   lastUpdated,
@@ -67,14 +74,16 @@ export function DashboardFiltersBar({
     queryClient.invalidateQueries();
   }
 
-  const projectOptions = (options?.projects || []).map(p => ({
+  // Cliente = Jira Project (Space)
+  const clientOptions = (options?.projects || []).map(p => ({
     value: p.key,
-    label: `${p.key} - ${p.name}`,
+    label: p.name,
   }));
 
-  const sprintOptions = (options?.sprints || []).map(s => ({
-    value: String(s.id),
-    label: `${s.name} (${s.state})`,
+  // Projeto = Épico dentro do Space selecionado
+  const projectOptions = (epics || []).map(e => ({
+    value: e.key,
+    label: e.name,
   }));
 
   const statusOptions = (options?.statuses || []).map(s => ({
@@ -87,6 +96,8 @@ export function DashboardFiltersBar({
     label: a.displayName,
   }));
 
+  const noClientSelected = !filters.projectKey;
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 text-muted-foreground">
@@ -98,24 +109,31 @@ export function DashboardFiltersBar({
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
+        {/* Cliente (Space = Jira Project) */}
+        <FilterSelect
+          label="Cliente"
+          value={filters.projectKey}
+          placeholder="Todos os clientes"
+          options={clientOptions}
+          onChange={(val) => {
+            // Ao mudar o cliente, reseta o projeto (epicKey)
+            onChange({ ...filters, projectKey: val || undefined, epicKey: undefined });
+          }}
+          disabled={isLoading}
+        />
+
+        {/* Projeto (Épico dentro do Space selecionado) */}
         <FilterSelect
           label="Projeto"
-          value={filters.projectKey}
-          placeholder="Todos os projetos"
+          value={filters.epicKey}
+          placeholder={noClientSelected ? 'Selecione um cliente primeiro' : epicsLoading ? 'Carregando...' : 'Todos os projetos'}
           options={projectOptions}
-          onChange={(val) => onChange({ ...filters, projectKey: val || undefined })}
-          disabled={isLoading}
+          onChange={(val) => onChange({ ...filters, epicKey: val || undefined })}
+          disabled={isLoading || noClientSelected || epicsLoading}
+          hint={noClientSelected ? undefined : undefined}
         />
 
-        <FilterSelect
-          label="Sprint"
-          value={filters.sprintId}
-          placeholder="Todas as sprints"
-          options={sprintOptions}
-          onChange={(val) => onChange({ ...filters, sprintId: val || undefined })}
-          disabled={isLoading}
-        />
-
+        {/* Status */}
         <FilterSelect
           label="Status"
           value={filters.status}
@@ -125,6 +143,7 @@ export function DashboardFiltersBar({
           disabled={isLoading}
         />
 
+        {/* Responsável */}
         <FilterSelect
           label="Responsável"
           value={filters.assigneeId}
@@ -160,7 +179,7 @@ export function DashboardFiltersBar({
 
       {lastUpdated && (
         <p className="text-xs text-muted-foreground">
-          Atualizado em {lastUpdated.toLocaleTimeString('pt-BR')} · Auto-atualiza a cada 30s
+          Atualizado em {lastUpdated.toLocaleTimeString('pt-BR')} · Auto-atualiza a cada 5s
         </p>
       )}
     </div>
